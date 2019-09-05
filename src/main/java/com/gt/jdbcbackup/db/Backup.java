@@ -5,8 +5,6 @@
  */
 package com.gt.jdbcbackup.db;
 
-import com.gt.jdbcbackup.MainClass;
-
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -14,7 +12,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.sql.Blob;
-import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -33,15 +30,18 @@ import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.gt.jdbcbackup.MainClass;
+
 public class Backup {
 
 	Connection connection;
+	
 	OutputStream printStream;
 
 	public Backup() {
 	}
 
-	public void toZipFile(String driverClass, String jdbc, String username, String password,
+	public static void toZipFile(String driverClass, String jdbc, String username, String password,
 			String fileName) throws ClassNotFoundException, SQLException {
 		java.util.logging.Logger.getLogger(MainClass.class.getName())
 				.log(java.util.logging.Level.INFO, "Iniciando backup de " + jdbc);
@@ -53,31 +53,38 @@ public class Backup {
 				.log(java.util.logging.Level.INFO, "Driver cargado correctamente, conectando");
 
 		try (Connection conn = DriverManager.getConnection(jdbc, username, password)) {
-
-			this.setConnection(conn);
-
-			try (FileOutputStream fos = new FileOutputStream(fileName + ".sql.zip");
-					ZipOutputStream zos = new ZipOutputStream(fos)) {
-
-				java.util.logging.Logger.getLogger(MainClass.class.getName()).log(
-						java.util.logging.Level.INFO,
-						"Iniciando Backup en archivo comprimido " + fileName + ".sql.zip");
-
-				ZipEntry ze = new ZipEntry(fileName + ".sql");
-				zos.putNextEntry(ze);
-
-				this.setPrintStream(zos);
-				this.getCreateScript();
-				zos.write("\r\n".getBytes());
-
-			} catch (FileNotFoundException ex) {
-				java.util.logging.Logger.getLogger(MainClass.class.getName())
-						.log(java.util.logging.Level.SEVERE, null, ex);
-			} catch (IOException ex) {
-				java.util.logging.Logger.getLogger(MainClass.class.getName())
-						.log(java.util.logging.Level.SEVERE, null, ex);
-			}
+			toZipFile(conn, fileName);
 		}
+	}
+
+	public static void toZipFile(Connection conn, String fileName) {
+		
+		Backup backup = new Backup();
+		
+		backup.setConnection(conn);
+
+		try (FileOutputStream fos = new FileOutputStream(fileName + ".sql.zip");
+				ZipOutputStream zos = new ZipOutputStream(fos)) {
+
+			java.util.logging.Logger.getLogger(MainClass.class.getName()).log(
+					java.util.logging.Level.INFO,
+					"Iniciando Backup en archivo comprimido " + fileName + ".sql.zip");
+
+			ZipEntry ze = new ZipEntry(fileName + ".sql");
+			zos.putNextEntry(ze);
+
+			backup.setPrintStream(zos);
+			backup.getCreateScript();
+			zos.write("\r\n".getBytes());
+
+		} catch (FileNotFoundException ex) {
+			java.util.logging.Logger.getLogger(MainClass.class.getName())
+					.log(java.util.logging.Level.SEVERE, null, ex);
+		} catch (IOException ex) {
+			java.util.logging.Logger.getLogger(MainClass.class.getName())
+					.log(java.util.logging.Level.SEVERE, null, ex);
+		}
+		
 	}
 
 	private void getCreateScript() {
