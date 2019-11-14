@@ -128,14 +128,10 @@ public class Backup {
 				"Generando script create de tabla " + schemaName + "." + tableName);
 
 		write("-- DROP TABLE ");
-		write(schemaName);
-		write(".");
-		write(tableName);
+		write(formatTableName(schemaName, tableName));
 		write(";\n");
 		write("CREATE TABLE ");
-		write(schemaName);
-		write(".");
-		write(tableName);
+		write(formatTableName(schemaName, tableName));
 		write(" (\n");
 		try {
 			DatabaseMetaData metaData = this.connection.getMetaData();
@@ -158,7 +154,7 @@ public class Backup {
 				} else {
 					write(",\n");
 				}
-				write(rs.getString("COLUMN_NAME"));
+				write(formatMysql(rs.getString("COLUMN_NAME")));
 				write(" ");
 				if ((tieneIsAutoinc) && (rs.getString("IS_AUTOINCREMENT") != null)
 						&& (rs.getString("IS_AUTOINCREMENT").equalsIgnoreCase("yes"))) {
@@ -213,7 +209,7 @@ public class Backup {
 				} else {
 					write(", ");
 				}
-				write(rs.getString("COLUMN_NAME"));
+				write(formatMysql(rs.getString("COLUMN_NAME")));
 			}
 			if (!first) {
 				write(")");
@@ -228,7 +224,7 @@ public class Backup {
 	private void getFkScript(String schemaName, String tableName)
 			throws SQLException {
 		Logger.getLogger(Backup.class.getName()).log(Level.FINE,
-				"Generando script FK de tabla " + schemaName + "." + tableName);
+				"Generando script FK de tabla " + formatTableName(schemaName, tableName));
 
 		DatabaseMetaData metaData = this.connection.getMetaData();
 		ResultSet rs = metaData.getImportedKeys(this.connection.getCatalog(), schemaName,
@@ -243,9 +239,9 @@ public class Backup {
 				fkColumnFrom.put(rs.getString("FK_NAME"), "");
 				fkColumnTo.put(rs.getString("FK_NAME"), "");
 				fkTableFrom.put(rs.getString("FK_NAME"),
-						rs.getString("FKTABLE_SCHEM") + "." + rs.getString("FKTABLE_NAME"));
+						formatTableName(rs.getString("FKTABLE_SCHEM"), rs.getString("FKTABLE_NAME")));
 				fkTableTo.put(rs.getString("FK_NAME"),
-						rs.getString("PKTABLE_SCHEM") + "." + rs.getString("PKTABLE_NAME"));
+						formatTableName(rs.getString("PKTABLE_SCHEM"), rs.getString("PKTABLE_NAME")));
 			}
 			if (!((String) fkColumnFrom.get(rs.getString("FK_NAME"))).isEmpty()) {
 				fkColumnFrom.put(rs.getString("FK_NAME"),
@@ -254,15 +250,15 @@ public class Backup {
 			}
 			fkColumnFrom.put(rs.getString("FK_NAME"),
 					(String) fkColumnFrom.get(rs.getString("FK_NAME"))
-							+ rs.getString("FKCOLUMN_NAME"));
+							+ formatMysql(rs.getString("FKCOLUMN_NAME")));
 			fkColumnTo.put(rs.getString("FK_NAME"), (String) fkColumnTo.get(rs.getString("FK_NAME"))
-					+ rs.getString("PKCOLUMN_NAME"));
+					+ formatMysql(rs.getString("PKCOLUMN_NAME")));
 		}
 		for (String kfk : fkTableFrom.keySet()) {
 			write("ALTER TABLE ");
 			write((String) fkTableFrom.get(kfk));
 			write(" ADD CONSTRAINT ");
-			write(kfk);
+			write(formatMysql(kfk));
 			write(" FOREIGN KEY (");
 			write((String) fkColumnFrom.get(kfk));
 			write(") ");
@@ -301,14 +297,14 @@ public class Backup {
 			} else {
 				columns = columns + ", ";
 			}
-			columns = columns + col;
+			columns = columns + formatMysql(col);
 		}
 		Statement stmt = this.connection.createStatement(ResultSet.TYPE_FORWARD_ONLY,
 				ResultSet.CONCUR_READ_ONLY);
 		stmt.setFetchSize(100);
 
 		ResultSet rs = stmt
-				.executeQuery("SELECT COUNT(*) AS cant FROM " + schemaName + "." + tableName);
+				.executeQuery("SELECT COUNT(*) AS cant FROM " + formatTableName(schemaName, tableName));
 
 		Long total = -1L;
 		Long cur = 0L;
@@ -330,8 +326,8 @@ public class Backup {
 		stmt.close();
 
 		Logger.getLogger(Backup.class.getName()).log(Level.INFO,
-				"Generando insercion de datos de tabla " + schemaName + "." + tableName
-						+ ", Tomando de a " + cantRow + " registros");
+				"Generando insercion de datos de tabla " + formatTableName(schemaName, tableName)
+						+ ", Tomando de a " + cantRow + " registros de un total de "  + total);
 
 		stmt = this.connection.createStatement(ResultSet.TYPE_FORWARD_ONLY,
 				ResultSet.CONCUR_READ_ONLY);
@@ -339,13 +335,12 @@ public class Backup {
 
 		SimpleDateFormat sqlDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
-		rs = stmt.executeQuery("SELECT " + columns + " FROM " + schemaName + "." + tableName);
+		rs = stmt.executeQuery("SELECT " + columns + " FROM " + formatTableName(schemaName, tableName));
 		while (rs.next()) {
 			cur++;
 			if (pos == 0) {
-				Logger.getLogger(Backup.class.getName()).log(Level.FINE, "tabla " + schemaName + "."
-						+ tableName + " registro " + cur + " de " + total);
-				write(";\nINSERT INTO " + schemaName + "." + tableName);
+				Logger.getLogger(Backup.class.getName()).log(Level.FINE, "tabla " + formatTableName(schemaName, tableName) + " registro " + cur + " de " + total);
+				write(";\nINSERT INTO " + formatTableName(schemaName, tableName));
 				write(" (" + columns + ") VALUES \n");
 			} else {
 				write(",\n");
@@ -366,8 +361,6 @@ public class Backup {
 					write(", ");
 				}
 				Object val = rs.getObject(col);
-				
-				
 				
 				if (val == null) {
 					write("NULL");
@@ -496,5 +489,25 @@ public class Backup {
 
 	public void setPrintStream(OutputStream printStream) {
 		this.printStream = printStream;
+	}
+	
+	private String formatTableName(String schemaName, String tableName) {
+		String ret = schemaName;
+		if(ret == null || ret.isEmpty()) {
+			ret = "";
+		} else {
+			ret = formatMysql(schemaName) + ".";			
+		}
+		ret += formatMysql(tableName);
+		return ret;
+	}
+	
+	private String formatMysql(String columnName) {
+		if(getConnection().getClass().getName().equals("org.mariadb.jdbc.MariaDbConnection")) {
+		
+			return "`" + columnName + "`";
+		}
+		
+		return columnName;
 	}
 }
