@@ -79,10 +79,10 @@ public class Backup {
 
 		} catch (FileNotFoundException ex) {
 			java.util.logging.Logger.getLogger(MainClass.class.getName())
-					.log(java.util.logging.Level.SEVERE, null, ex);
+					.log(java.util.logging.Level.SEVERE, "Archivo no encontrado", ex);
 		} catch (IOException ex) {
 			java.util.logging.Logger.getLogger(MainClass.class.getName())
-					.log(java.util.logging.Level.SEVERE, null, ex);
+					.log(java.util.logging.Level.SEVERE, "Error de entrada/salida", ex);
 		}
 		
 	}
